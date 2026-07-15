@@ -29,3 +29,14 @@ class ProductionLineController:
             "actual_production": actual_production,
             "total_production_time": total_production_time,
         }
+
+    def waiting_orders(self) -> list:
+        producing_orders = [
+            order
+            for order in self.order_repository.find_all()
+            if order.status == "PRODUCING"
+        ]
+
+        sorted_orders = sorted(producing_orders, key=lambda o: o.id)
+
+        return sorted_orders[1:]
