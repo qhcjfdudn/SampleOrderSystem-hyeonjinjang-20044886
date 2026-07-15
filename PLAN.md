@@ -1,58 +1,61 @@
 # PLAN.md (이번 사이클 RED 단계)
 
-대상 로드맵: `docs/PLAN.md` 8단계 "모니터링" 중 첫 번째 항목 — 상태별 주문 현황 집계 (PRD 5.7
-"주문량 확인").
+대상 로드맵: `docs/PLAN.md` 8단계 "모니터링" 중 두 번째 항목 — 시료별 재고 현황 및 여유/부족/고갈
+상태 표시 (PRD 5.7 "재고량 확인"). 8단계 마지막 항목이다.
 
 ## 이번에 구현할 동작 (1가지)
 
-여러 상태(`RESERVED`/`CONFIRMED`/`PRODUCING`/`RELEASE`/`REJECTED`)의 주문이 섞여 있을 때
-`MonitoringController.order_status_counts`를 호출하면, `REJECTED`를 제외한 4개 상태 각각의 주문
-건수를 dict로 반환한다.
+등록된 시료들에 대해 `MonitoringController.sample_stock_status`를 호출하면, 각 시료마다 미완료
+주문(`RESERVED`+`PRODUCING`) 수량 합계를 "수요"로 계산해 현재 재고와 비교한 뒤, 재고 0이면 `"고갈"`,
+재고가 수요보다 적으면 `"부족"`, 그 외에는 `"여유"`로 판정한 결과를 시료별로 반환한다.
 
 ## 설계 결정
 
-- 위치: `app/controllers/monitoring_controller.py`, 클래스명 `MonitoringController`
-- 생성자: `MonitoringController(order_repository, sample_repository)` — 두 저장소를 주입받는다
-  (다음 사이클의 재고 상태 판정에 `sample_repository`가 필요하므로 미리 주입 구조를 만든다, 이번
-  사이클에서는 사용하지 않음).
-- 메서드: `order_status_counts() -> dict`
-  - `self.order_repository.find_all()`로 전체 주문을 조회한다.
-  - `{"RESERVED": 0, "CONFIRMED": 0, "PRODUCING": 0, "RELEASE": 0}`로 초기화한 dict에 각 주문의
-    `status`별 개수를 누적한다.
-  - `REJECTED` 상태 주문은 집계에서 완전히 제외한다 (PRD 4장 "REJECTED는 정상 흐름 밖의 상태로,
-    모니터링 집계에서 제외", CLAUDE.md 동일 서술).
-  - 반환값의 키는 4개(`RESERVED`, `CONFIRMED`, `PRODUCING`, `RELEASE`)로 고정하며, 해당 상태 주문이
-    0건이어도 키 자체는 존재하고 값이 0이다 (View가 항상 4개 항목을 표시할 수 있도록).
-- `OrderRepository`, `Order`는 변경하지 않는다.
-- 재고 상태(여유/부족/고갈) 판정은 이번 사이클 범위 밖 (다음 사이클에서 진행, 사용자와 합의된 기준:
-  시료별 `RESERVED`+`PRODUCING` 상태 주문 수량 합계를 "미완료 수요"로 보고 현재 재고와 비교).
-- 콘솔 입출력(View)은 이번 사이클 범위 밖.
+- (사용자와 합의된 판정 기준)
+  - 시료별 수요 = 그 시료를 대상으로 하는 주문 중 `status`가 `RESERVED` 또는 `PRODUCING`인 주문의
+    `quantity` 합계. `CONFIRMED`/`RELEASE`는 이미 재고에서 차감이 끝났거나 출고 완료된 상태라 수요에
+    포함하지 않고, `REJECTED`는 유효한 주문이 아니므로 포함하지 않는다.
+  - 판정 순서: `sample.stock == 0`이면 무조건 `"고갈"` (수요와 무관하게 재고 자체가 0인 상태를
+    최우선으로 판정). 그 다음 `sample.stock < demand`이면 `"부족"`. 그 외(재고가 0보다 크고 수요
+    이상인 경우, 수요가 0인 경우 포함)에는 `"여유"`.
+- `app/controllers/monitoring_controller.py`의 `MonitoringController`에
+  `sample_stock_status() -> list[dict]` 메서드를 추가한다.
+  - `self.order_repository.find_all()`로 전체 주문을 조회해, `status`가 `RESERVED` 또는 `PRODUCING`인
+    주문만 `sample_id`별로 `quantity`를 합산한 dict(`demand_by_sample`)를 만든다.
+  - `self.sample_repository.find_all()`로 전체 시료를 조회한다.
+  - 각 시료에 대해 `demand = demand_by_sample.get(sample.id, 0)`를 구하고, 위 판정 순서대로
+    `status` 문자열(`"고갈"`/`"부족"`/`"여유"`)을 계산한다.
+  - 각 시료마다 `{"sample": sample, "demand": demand, "status": status}` 형태의 dict를 만들어
+    리스트로 반환한다 (PRD 5.7 "표기 정보 수준은 구현 시 자율적으로 결정"에 준해, 6단계
+    `current_production`과 동일하게 dict 리스트로 단순화).
+  - 시료가 하나도 없으면 빈 리스트를 반환한다.
+- `OrderRepository`, `SampleRepository`, `Order`, `Sample`은 변경하지 않는다.
+- 콘솔 입출력(View)은 이번 사이클 범위 밖. 이 사이클을 끝으로 8단계(모니터링)가 모두 구현된다.
 
 ## 테스트
 
-- 파일: `tests/test_monitoring_controller.py` (신규)
-- 테스트 이름: `test_order_status_counts_excludes_rejected_and_counts_each_status`
+- 파일: `tests/test_monitoring_controller.py`에 테스트를 추가한다 (기존 파일 확장).
+- 테스트 이름: `test_sample_stock_status_classifies_samples_as_abundant_short_or_depleted`
 - 검증 내용:
   - `tmp_path` fixture로 임시 `orders.json`, `samples.json` 경로를 만들고, 실제 `OrderRepository`,
     `SampleRepository`, `OrderController`, `MonitoringController`를 생성한다 (mock 없음).
-  - 재고 충분한 시료(`S-001`, stock=100)를 저장한다.
-  - 다음과 같이 주문 5건을 만든다 (모두 `order_controller.place_order`로 접수한 뒤 상태 전이):
-    - 주문 A: 접수만 함 (`RESERVED` 유지)
-    - 주문 B: `approve_order` → 재고 충분이라 `CONFIRMED`
-    - 주문 C: `approve_order` 후 `release_order` → `RELEASE`
-    - 주문 D: `reject_order` → `REJECTED` (집계에서 제외되어야 함)
-    - 주문 E: 재고가 부족한 다른 시료(`S-002`, stock=1)에 큰 수량으로 주문 후 `approve_order` →
-      `PRODUCING`
-  - `monitoring_controller.order_status_counts()`를 호출한 결과가
-    `{"RESERVED": 1, "CONFIRMED": 1, "PRODUCING": 1, "RELEASE": 1}`과 같은지 확인한다 (딕셔너리 비교,
-    `REJECTED` 키는 존재하지 않아야 함).
+  - 시료 3건을 저장한다:
+    - `S-001` (재고 20): `RESERVED` 주문 수량 5건만 있어 수요(5) ≤ 재고(20) → `"여유"` 기대.
+    - `S-002` (재고 5): `PRODUCING` 주문 수량 20건이 있어 수요(20) > 재고(5) → `"부족"` 기대.
+    - `S-003` (재고 0): 주문이 전혀 없어도 재고가 0이므로 → `"고갈"` 기대.
+  - `S-001`에 대해 `order_controller.place_order`로 수량 5인 주문을 접수한다 (`RESERVED` 유지).
+  - `S-002`에 대해 `order_controller.place_order`로 수량 20인 주문을 접수하고 `approve_order`로
+    승인해 `PRODUCING`으로 만든다 (재고 5 < 수량 20).
+  - `monitoring_controller.sample_stock_status()`를 호출한 결과를 시료 id로 인덱싱한 뒤, 각각의
+    `status`가 기대한 값(`S-001` → `"여유"`, `S-002` → `"부족"`, `S-003` → `"고갈"`)과 일치하는지
+    확인한다.
 - mock 없이 실제 `OrderController`, `MonitoringController`, `OrderRepository`, `SampleRepository`,
   `Order`, `Sample`, 실제 파일 시스템(`tmp_path`)을 사용하여 검증한다.
 
 ## 예상되는 최소 구현 방향 (GREEN 단계 참고용)
 
-`app/controllers/monitoring_controller.py`에 `MonitoringController` 클래스를 정의한다. 생성자에서
-`order_repository`, `sample_repository`를 보관하고, `order_status_counts`는 4개 상태로 초기화한
-dict를 만든 뒤 `order_repository.find_all()`을 순회하며 `status`가 그 4개 중 하나일 때만 카운트를
-누적해 반환한다 (`REJECTED`나 그 외 값은 무시). 재고 상태 판정, View 연동은 이번 사이클에서 추가하지
-않는다.
+`MonitoringController.sample_stock_status`는 `order_repository.find_all()`에서
+`RESERVED`/`PRODUCING` 주문만 걸러 `sample_id`별 `quantity` 합계 dict를 만든 뒤,
+`sample_repository.find_all()`의 각 시료에 대해 `stock == 0`이면 `"고갈"`, `stock < demand`이면
+`"부족"`, 그 외는 `"여유"`로 판정해 `{"sample":, "demand":, "status":}` 리스트를 반환한다. View 연동은
+이번 사이클에서 추가하지 않는다 — 이것으로 8단계가 완성된다.

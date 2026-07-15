@@ -60,3 +60,52 @@ def test_order_status_counts_excludes_rejected_and_counts_each_status(tmp_path):
         "PRODUCING": 1,
         "RELEASE": 1,
     }
+
+
+def test_sample_stock_status_classifies_samples_as_abundant_short_or_depleted(tmp_path):
+    order_repository = OrderRepository(str(tmp_path / "orders.json"))
+    sample_repository = SampleRepository(str(tmp_path / "samples.json"))
+    order_controller = OrderController(order_repository, sample_repository)
+    monitoring_controller = MonitoringController(order_repository, sample_repository)
+
+    sample_repository.save(
+        Sample(
+            id="S-001",
+            name="실리콘 웨이퍼-8인치",
+            avg_production_time=30,
+            yield_rate=0.9,
+            stock=20,
+        )
+    )
+    sample_repository.save(
+        Sample(
+            id="S-002",
+            name="GaN 웨이퍼-6인치",
+            avg_production_time=45,
+            yield_rate=0.85,
+            stock=5,
+        )
+    )
+    sample_repository.save(
+        Sample(
+            id="S-003",
+            name="사파이어 기판",
+            avg_production_time=60,
+            yield_rate=0.8,
+            stock=0,
+        )
+    )
+
+    order_controller.place_order("S-001", "홍길동", 5, date(2026, 4, 16))
+
+    order_e = order_controller.place_order("S-002", "정지훈", 20, date(2026, 4, 16))
+    order_controller.approve_order(order_e.id)
+
+    statuses = {
+        entry["sample"].id: entry["status"]
+        for entry in monitoring_controller.sample_stock_status()
+    }
+
+    assert statuses["S-001"] == "여유"
+    assert statuses["S-002"] == "부족"
+    assert statuses["S-003"] == "고갈"
