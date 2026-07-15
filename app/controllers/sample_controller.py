@@ -18,3 +18,10 @@ class SampleController:
 
     def list_samples(self) -> list:
         return self.sample_repository.find_all()
+
+    def search_by_name(self, keyword) -> list:
+        return [
+            sample
+            for sample in self.sample_repository.find_all()
+            if keyword in sample.name
+        ]
