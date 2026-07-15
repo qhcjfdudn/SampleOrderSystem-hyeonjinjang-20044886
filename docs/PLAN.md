@@ -51,8 +51,8 @@
 
 ## 8단계 — 모니터링
 
-- [ ] 상태별(`RESERVED`/`CONFIRMED`/`PRODUCING`/`RELEASE`) 주문 현황 집계 (`REJECTED` 제외) (PRD 5.7)
-- [ ] 시료별 재고 현황 및 여유/부족/고갈 상태 표시
+- [x] 상태별(`RESERVED`/`CONFIRMED`/`PRODUCING`/`RELEASE`) 주문 현황 집계 (`REJECTED` 제외) (PRD 5.7)
+- [x] 시료별 재고 현황 및 여유/부족/고갈 상태 표시
 
 ## 9단계 — 메인 메뉴 연결
 
