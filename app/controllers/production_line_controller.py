@@ -39,6 +39,9 @@ class ProductionLineController:
         order = production["order"]
         actual_production = production["actual_production"]
 
+        # 실생산량만큼 재고를 채운 뒤, 이 주문이 즉시 소비하는 수량을 차감한다.
+        # (재고는 CONFIRMED 전환 시점에만 차감한다는 원칙 — 5단계 approve_order의 즉시 승인
+        # 경로와 동일. 따라서 완료 후 재고는 "미배정 여유분"만 남고, 주문 수량만큼 늘지 않는다.)
         sample = self.sample_repository.find_by_id(order.sample_id)
         sample.stock += actual_production
         sample.stock -= order.quantity
