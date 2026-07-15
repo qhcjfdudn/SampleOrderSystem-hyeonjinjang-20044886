@@ -37,3 +37,22 @@ def test_list_samples_returns_all_registered_samples(tmp_path):
     assert len(samples) == 2
     assert {sample.id for sample in samples} == {"S-001", "S-002"}
     assert all(sample.stock == 0 for sample in samples)
+
+
+def test_search_by_name_returns_only_samples_matching_keyword(tmp_path):
+    file_path = tmp_path / "samples.json"
+    repository = SampleRepository(str(file_path))
+    controller = SampleController(repository)
+
+    controller.register("S-001", "실리콘 웨이퍼-8인치", 30, 0.9)
+    controller.register("S-002", "실리콘 웨이퍼-12인치", 40, 0.88)
+    controller.register("S-003", "GaN 웨이퍼-6인치", 45, 0.85)
+
+    matched = controller.search_by_name("실리콘")
+
+    assert len(matched) == 2
+    assert {sample.id for sample in matched} == {"S-001", "S-002"}
+
+    not_found = controller.search_by_name("존재하지않는이름")
+
+    assert not_found == []
