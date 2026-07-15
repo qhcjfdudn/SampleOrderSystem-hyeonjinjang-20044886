@@ -10,11 +10,11 @@
 
 ## 1단계 — 프로젝트 골격
 
-- [ ] `../PoC/ConsoleMVC`의 `mvc-skeleton` Skill로 `app/{models,views,controllers}`, `config.py`, `main.py`,
+- [x] `../PoC/ConsoleMVC`의 `mvc-skeleton` Skill로 `app/{models,views,controllers}`, `config.py`, `main.py`,
       `requirements.txt` 골격 생성 (PRD 8장)
-- [ ] `pyproject.toml` 작성, `data-persistence`를 `../PoC/DataPersistence` 로컬 editable 의존성으로 추가
-- [ ] `pip install -e ../PoC/DataPersistence` 실행 후 `import data_persistence` 확인
-- [ ] `pytest`, `pytest-cov` 등 테스트 의존성 추가
+- [x] `pyproject.toml` 작성, `data-persistence`를 `../PoC/DataPersistence` 로컬 editable 의존성으로 추가
+- [x] `pip install -e ../PoC/DataPersistence` 실행 후 `import data_persistence` 확인
+- [x] `pytest`, `pytest-cov` 등 테스트 의존성 추가
 
 ## 2단계 — 데이터 계층 (Model)
 
