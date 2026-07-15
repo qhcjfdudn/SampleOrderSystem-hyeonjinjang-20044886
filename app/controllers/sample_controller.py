@@ -15,3 +15,6 @@ class SampleController:
         )
         self.sample_repository.save(sample)
         return sample
+
+    def list_samples(self) -> list:
+        return self.sample_repository.find_all()

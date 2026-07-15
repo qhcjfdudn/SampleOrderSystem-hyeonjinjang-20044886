@@ -22,3 +22,7 @@ class SampleRepository:
         if record is None:
             return None
         return Sample(**record)
+
+    def find_all(self) -> list:
+        records = self._data_persistence.read_all()
+        return [Sample(**record) for record in records]
