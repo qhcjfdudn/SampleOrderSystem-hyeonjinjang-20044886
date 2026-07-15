@@ -30,6 +30,25 @@ class ProductionLineController:
             "total_production_time": total_production_time,
         }
 
+    def complete_current_production(self):
+        production = self.current_production()
+
+        if production is None:
+            return None
+
+        order = production["order"]
+        actual_production = production["actual_production"]
+
+        sample = self.sample_repository.find_by_id(order.sample_id)
+        sample.stock += actual_production
+        sample.stock -= order.quantity
+        self.sample_repository.update(sample)
+
+        order.status = "CONFIRMED"
+        self.order_repository.update(order)
+
+        return order
+
     def waiting_orders(self) -> list:
         producing_orders = [
             order
