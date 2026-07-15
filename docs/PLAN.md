@@ -34,9 +34,9 @@
 
 ## 5단계 — 주문 승인/거절
 
-- [ ] `RESERVED` 주문 목록 표시 (PRD 5.4)
-- [ ] 주문 승인 — 재고 충분 시 `CONFIRMED`, 재고 부족 시 생산 라인 등록 + `PRODUCING` 전환
-- [ ] 주문 거절 — `REJECTED` 전환
+- [x] `RESERVED` 주문 목록 표시 (PRD 5.4)
+- [x] 주문 승인 — 재고 충분 시 `CONFIRMED`, 재고 부족 시 생산 라인 등록 + `PRODUCING` 전환
+- [x] 주문 거절 — `REJECTED` 전환
 
 ## 6단계 — 생산 라인
 
