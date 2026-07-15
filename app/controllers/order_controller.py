@@ -2,8 +2,9 @@ from app.models.order import Order
 
 
 class OrderController:
-    def __init__(self, order_repository):
+    def __init__(self, order_repository, sample_repository):
         self.order_repository = order_repository
+        self.sample_repository = sample_repository
 
     def place_order(self, sample_id, customer_name, quantity, order_date) -> Order:
         formatted = order_date.strftime("%Y%m%d")
@@ -23,4 +24,10 @@ class OrderController:
             status="RESERVED",
         )
         self.order_repository.save(order)
+        return order
+
+    def reject_order(self, order_id) -> Order:
+        order = self.order_repository.find_by_id(order_id)
+        order.status = "REJECTED"
+        self.order_repository.update(order)
         return order
