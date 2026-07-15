@@ -36,6 +36,9 @@ class OrderController:
 
             order.status = "CONFIRMED"
             self.order_repository.update(order)
+        else:
+            order.status = "PRODUCING"
+            self.order_repository.update(order)
 
         return order
 
