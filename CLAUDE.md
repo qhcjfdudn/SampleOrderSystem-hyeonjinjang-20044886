@@ -48,15 +48,68 @@
 
 ## 빌드 및 실행 명령어
 
-(작성 예정: 실제 소스 코드가 추가되면 빌드/실행/린트 명령어를 이곳에 기술하세요.)
+```bash
+# 의존성 설치 (최초 1회, 로컬 editable 패키지 포함)
+pip install -e ../PoC/DataPersistence
+pip install -e .[dev]
+
+# 콘솔 앱 실행
+python main.py
+```
+
+- 데이터 파일 경로는 `config.py`의 `Config.SAMPLES_FILE`/`Config.ORDERS_FILE`(기본값
+  `data/samples.json`, `data/orders.json`)에 정의되어 있으며, 실행 시 디렉터리가 없으면
+  `data_persistence`가 자동으로 생성한다.
 
 ## 테스트 명령어
 
-(작성 예정: 테스트 실행 방법을 이곳에 기술하세요.)
+```bash
+pytest tests/                          # 전체 테스트 실행
+pytest tests/ --cov=app --cov-report=term-missing   # 커버리지 포함
+pytest tests/test_order_controller.py  # 특정 파일만 실행
+```
 
 ## 코드 스타일 및 규칙
 
-(작성 예정: 코딩 컨벤션, 폴더 구조, 네이밍 규칙 등을 이곳에 기술하세요.)
+- 폴더 구조: MVC 3계층 (`app/models`, `app/controllers`, `app/views`), 진입점은 `main.py`,
+  전역 설정은 `config.py`.
+  - Model(`app/models`): 데이터 클래스(`Sample`, `Order`)와 Repository(`SampleRepository`,
+    `OrderRepository`). Repository는 `data_persistence.DataPersistence`에만 파일 I/O를 위임하고
+    직접 `open`/`json`을 사용하지 않는다.
+  - Controller(`app/controllers`): 기능 단위로 분리(`SampleController`, `OrderController`,
+    `ProductionLineController`, `MonitoringController`). 저장소를 생성자 주입으로 받아 비즈니스
+    로직(상태 전이, 재고 계산, FIFO 큐 등)을 담당하고, 콘솔 입출력은 하지 않는다.
+  - View(`app/views`): 기능별 파일 분리(`sample_view.py`, `order_view.py`, `production_view.py`,
+    `monitoring_view.py`). `input()`/`print()`만 사용하며 Controller를 외부에서 주입받아 호출할 뿐,
+    Repository를 직접 생성하거나 비즈니스 로직을 갖지 않는다.
+- TDD 사이클: 매 사이클 "이번에 구현할 동작 1가지"만 다루며, 루트 `PLAN.md`에 RED 단계 설계를
+  먼저 기록한 뒤 실패 테스트 → 최소 구현 → 검증 순서로 진행한다 (`docs/PLAN.md` 9장·10장 참고).
+- 테스트는 mock 없이 실제 클래스와 `tmp_path`(임시 파일 시스템)를 사용하는 것을 원칙으로 하며,
+  콘솔 View 테스트만 `input()`을 `monkeypatch`하고 `capsys`로 출력을 검증한다 (콘솔 입출력이 유일한
+  "외부 경계"이기 때문).
+- 재고 차감은 주문이 `CONFIRMED`로 전환되는 시점에만 이뤄진다 (즉시 승인이든 생산 완료 후 전환이든
+  동일). 출고(`RELEASE`)는 상태만 전환하며 재고를 다시 건드리지 않는다.
+- 생산 큐는 별도 자료구조 없이 `OrderRepository`에 저장된 `PRODUCING` 주문을 주문번호(`id`,
+  `ORD-YYYYMMDD-NNNN` 형식이라 문자열 정렬이 곧 시간순)로 정렬해 파생 조회하는 방식으로 구현했다.
+
+## 원본 설계 자료와의 UX 차이 (참고용, 의도적으로 유지)
+
+`temp/requirements/feature requirements/*_예시 UI 화면.png`에 있는 원본 예시 화면과 실제 구현을
+비교한 결과, 다음과 같은 차이가 있다. 기능적으로는 요구사항을 충족하지만 세부 UX가 다르므로 참고용으로
+기록해둔다 (10단계 마무리 시 사용자와 협의해 코드는 변경하지 않고 문서화만 하기로 결정함).
+
+- **뒤로가기/종료 번호**: 예시 UI는 모든 하위 메뉴에서 뒤로가기·종료를 항상 `[0]`으로 표시한다.
+  실제 구현은 각 메뉴의 마지막 순번(예: 시료 관리는 `4`, 메인 메뉴는 `7`)을 사용한다.
+- **메인 메뉴 항목 순서**: 예시 UI는 `[4] 모니터링 [5] 생산 라인 조회 [6] 출고 처리` 순서이나, 실제
+  구현은 `4=생산 라인 조회, 5=출고 처리, 6=모니터링` 순서다 (`CLAUDE.md` 표 순서를 따름, PRD 5.1 표
+  순서와도 다름).
+- **승인/거절·출고 처리의 입력 방식**: 예시 UI는 번호가 매겨진 목록에서 순번을 선택하고, 승인 시
+  재고 확인 메시지와 `[Y]/[N]` 확인 단계를 거친다. 실제 구현은 주문번호(문자열)를 직접 입력받아
+  확인 단계 없이 바로 처리한다.
+- **생산 라인/모니터링 표시 정보**: 예시 UI는 진행률(%), 완료 예정 시각, 재고 잔여율 막대 등을
+  보여주지만, 실제 구현은 이 시스템이 시간 경과를 시뮬레이션하지 않는 점(생산 완료는 담당자의 명시적
+  액션)에 맞춰 부족분/실생산량/총생산시간과 여유·부족·고갈 상태만 텍스트로 보여준다 (PRD 5.5/5.7
+  "표기 정보 수준은 구현 시 자율적으로 결정" 조항에 따른 의도적 단순화).
 
 ## 기타 참고 사항
 
