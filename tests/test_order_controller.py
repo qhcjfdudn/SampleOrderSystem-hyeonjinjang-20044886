@@ -128,3 +128,28 @@ def test_list_reserved_orders_returns_only_reserved_orders(tmp_path):
     assert len(reserved_orders) == 1
     assert reserved_orders[0].id == order_a.id
     assert reserved_orders[0].status == "RESERVED"
+
+
+def test_list_confirmed_orders_returns_only_confirmed_orders(tmp_path):
+    order_repository = OrderRepository(str(tmp_path / "orders.json"))
+    sample_repository = SampleRepository(str(tmp_path / "samples.json"))
+    controller = OrderController(order_repository, sample_repository)
+
+    sample_repository.save(
+        Sample(
+            id="S-001",
+            name="실리콘 웨이퍼-8인치",
+            avg_production_time=30,
+            yield_rate=0.9,
+            stock=50,
+        )
+    )
+    order_a = controller.place_order("S-001", "홍길동", 10, date(2026, 4, 16))
+    controller.approve_order(order_a.id)
+    controller.place_order("S-001", "김철수", 5, date(2026, 4, 16))
+
+    confirmed_orders = controller.list_confirmed_orders()
+
+    assert len(confirmed_orders) == 1
+    assert confirmed_orders[0].id == order_a.id
+    assert confirmed_orders[0].status == "CONFIRMED"
