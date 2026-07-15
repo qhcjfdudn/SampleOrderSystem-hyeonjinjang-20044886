@@ -1,47 +1,50 @@
 # PLAN.md (이번 사이클 RED 단계)
 
-대상 로드맵: `docs/PLAN.md` 2단계 "데이터 계층 (Model)" 중 세 번째 항목 — 주문(Order) 데이터의
-`data_persistence` 연동 (Sample 부분은 이전 사이클에서 완료, 이번 사이클은 Order 부분).
+대상 로드맵: `docs/PLAN.md` 3단계 "시료 관리" 중 첫 번째 항목 — 시료 등록 (PRD 5.2).
 
 ## 이번에 구현할 동작 (1가지)
 
-`OrderRepository`로 `Order`를 저장(save)하면, 같은 id로 다시 조회했을 때(find_by_id) 저장한 주문과
-동일한 필드 값을 가진 `Order`를 반환한다.
+`SampleController.register`에 시료 ID/이름/평균 생산시간/수율을 전달해 새 시료를 등록하면, 재고
+(stock) 0으로 시작하는 `Sample`이 생성되어 저장소에 저장되고, 등록된 `Sample`이 반환된다.
 
 ## 설계 결정
 
-- 위치: `app/models/order_repository.py`
-- 클래스명: `OrderRepository`
-- 생성자: `OrderRepository(file_path)` — `data_persistence.DataPersistence(file_path)`를 내부에서
-  생성해 `orders.json` 파일 경로를 그대로 전달받는다 (`SampleRepository`와 동일한 패턴, PRD 7장).
-- 메서드:
-  - `save(order: Order) -> None` — `Order` 객체를 dict로 변환해 `DataPersistence.create(record)`로
-    저장한다.
-  - `find_by_id(id) -> Order | None` — `DataPersistence.read(id)`로 dict를 조회한 뒤 존재하면 `Order`
-    객체로 변환해 반환하고, 없으면 `None`을 반환한다.
-- `Order` ↔ dict 변환: `Order`의 5개 필드(id, sample_id, customer_name, quantity, status)를 그대로
-  dict의 키/값으로 매핑한다. `Order`에는 `to_dict`/`from_dict`를 추가하지 않고 `OrderRepository` 내부에서
-  직접 dict를 구성/해석한다 (`SampleRepository`와 동일한 방식).
-- update/delete, 목록 조회, 상태 전이 로직 등은 이번 사이클 범위 밖 (이후 5~7단계 Controller에서 담당).
-- 파일 I/O는 `data_persistence.DataPersistence`에 위임하며, 직접 `open`/`json` 등을 사용하지 않는다.
+- 위치: `app/controllers/sample_controller.py`
+- 클래스명: `SampleController`
+- 생성자: `SampleController(sample_repository)` — 기존 `SampleRepository` 인스턴스를 주입받는다
+  (Controller는 저장소 구현을 직접 생성하지 않고 의존성으로 받는다, PRD 8장 MVC 계층 분리).
+- 메서드: `register(id, name, avg_production_time, yield_rate) -> Sample`
+  - 전달받은 값으로 `Sample(id=id, name=name, avg_production_time=avg_production_time,
+    yield_rate=yield_rate, stock=0)`을 생성한다. 신규 등록 시점에는 아직 생산된 실물이 없으므로
+    재고는 항상 0으로 시작한다 (PRD 5.2 — 등록 시 입력값은 시료 ID/이름/평균 생산시간/수율뿐이며
+    재고는 입력값에 없음).
+  - `sample_repository.save(sample)`로 저장한다.
+  - 저장한 `Sample` 객체를 그대로 반환한다 (View가 등록 결과를 표시할 때 사용, 이번 사이클은 View
+    연동 범위 밖).
+- 콘솔 입출력(View)은 이번 사이클 범위 밖 — Controller의 순수 로직만 구현하고, 사용자 입력 처리/
+  화면 출력은 이후 사이클(9단계 메인 메뉴 연결 전 별도 View 사이클)에서 다룬다.
+- 시료 조회/검색 기능은 이번 사이클 범위 밖 (다음 사이클에서 진행).
+- id 중복 검사 등 유효성 검증은 이번 사이클 범위 밖 (PRD에 별도 명시 없음, 최소 구현으로 시작).
 
 ## 테스트
 
-- 파일: `tests/test_order_repository.py`
-- 테스트 이름: `test_save_and_find_by_id_returns_order_with_same_field_values`
+- 파일: `tests/test_sample_controller.py`
+- 테스트 이름: `test_register_creates_sample_with_zero_stock_and_saves_it`
 - 검증 내용:
-  - `tmp_path` fixture로 임시 디렉터리에 `orders.json` 경로를 만들고, 그 경로로 `OrderRepository`를
-    생성한다 (실제 파일 시스템 사용, mock 없음).
-  - `Order(id="ORD-20260416-0043", sample_id="S-001", customer_name="홍길동", quantity=20,
-    status="RESERVED")`를 생성해 `repository.save(order)`로 저장한다.
-  - `repository.find_by_id("ORD-20260416-0043")`로 조회한 결과가 `None`이 아니며, `id`, `sample_id`,
-    `customer_name`, `quantity`, `status` 속성이 저장한 주문과 각각 동일한 값인지 확인한다.
-- mock 없이 실제 `OrderRepository`, `Order`, `DataPersistence`, 실제 파일 시스템(`tmp_path`)을 사용하여
-  검증한다.
+  - `tmp_path` fixture로 임시 `samples.json` 경로를 만들고, 실제 `SampleRepository`를 생성한다
+    (mock 없음, 이전 사이클에서 검증된 `SampleRepository`를 그대로 사용).
+  - `SampleController(repository)`를 생성하고 `controller.register("S-001", "실리콘 웨이퍼-8인치",
+    30, 0.9)`를 호출한다.
+  - 반환된 `Sample`의 `id`, `name`, `avg_production_time`, `yield_rate`가 입력값과 동일하고
+    `stock`이 `0`인지 확인한다.
+  - `repository.find_by_id("S-001")`로 다시 조회했을 때도 동일한 필드 값(재고 0 포함)을 가진
+    `Sample`이 반환되는지 확인해, 실제로 저장소에 저장되었음을 검증한다.
+- mock 없이 실제 `SampleController`, `SampleRepository`, `Sample`, 실제 파일 시스템(`tmp_path`)을
+  사용하여 검증한다.
 
 ## 예상되는 최소 구현 방향 (GREEN 단계 참고용)
 
-`app/models/order_repository.py`에 `OrderRepository` 클래스를 정의한다. 생성자에서
-`DataPersistence(file_path)` 인스턴스를 보관하고, `save`는 `Order` 필드를 dict로 만들어 `create`를
-호출하며, `find_by_id`는 `read(id)`로 얻은 dict를 `Order(**dict)`로 복원해 반환한다 (없으면 `None`).
-그 외 update/delete, 목록 조회 등은 이번 사이클에서 추가하지 않는다.
+`app/controllers/sample_controller.py`에 `SampleController` 클래스를 정의한다. 생성자에서
+`sample_repository`를 보관하고, `register`는 인자로 받은 값과 `stock=0`으로 `Sample`을 생성해
+`sample_repository.save(sample)`를 호출한 뒤 그 `Sample`을 반환한다. 조회/검색 메서드나 View 연동은
+이번 사이클에서 추가하지 않는다.
