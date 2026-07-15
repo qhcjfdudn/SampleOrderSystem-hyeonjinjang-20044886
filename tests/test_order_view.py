@@ -4,7 +4,7 @@ from app.controllers.order_controller import OrderController
 from app.models.order_repository import OrderRepository
 from app.models.sample import Sample
 from app.models.sample_repository import SampleRepository
-from app.views.order_view import run_order_approval_menu, run_order_menu
+from app.views.order_view import run_order_approval_menu, run_order_menu, run_release_menu
 
 
 def test_run_order_menu_places_order_and_shows_confirmation(tmp_path, monkeypatch, capsys):
@@ -64,3 +64,32 @@ def test_run_order_approval_menu_lists_approves_and_rejects_orders(tmp_path, mon
     assert order_b.id in output
     assert "CONFIRMED" in output
     assert "REJECTED" in output
+
+
+def test_run_release_menu_lists_confirmed_orders_and_releases_order(tmp_path, monkeypatch, capsys):
+    order_repository = OrderRepository(str(tmp_path / "orders.json"))
+    sample_repository = SampleRepository(str(tmp_path / "samples.json"))
+    order_controller = OrderController(order_repository, sample_repository)
+
+    sample_repository.save(
+        Sample(
+            id="S-001",
+            name="실리콘 웨이퍼-8인치",
+            avg_production_time=30,
+            yield_rate=0.9,
+            stock=50,
+        )
+    )
+
+    placed_order = order_controller.place_order("S-001", "홍길동", 5, date(2026, 4, 16))
+    order_controller.approve_order(placed_order.id)
+
+    inputs = iter(["1", "2", placed_order.id, "3"])
+    monkeypatch.setattr("builtins.input", lambda *args: next(inputs))
+
+    run_release_menu(order_controller)
+
+    output = capsys.readouterr().out
+
+    assert output.count(placed_order.id) >= 2
+    assert "RELEASE" in output
