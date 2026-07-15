@@ -22,3 +22,18 @@ def test_register_creates_sample_with_zero_stock_and_saves_it(tmp_path):
     assert found.avg_production_time == registered.avg_production_time
     assert found.yield_rate == registered.yield_rate
     assert found.stock == 0
+
+
+def test_list_samples_returns_all_registered_samples(tmp_path):
+    file_path = tmp_path / "samples.json"
+    repository = SampleRepository(str(file_path))
+    controller = SampleController(repository)
+
+    controller.register("S-001", "실리콘 웨이퍼-8인치", 30, 0.9)
+    controller.register("S-002", "GaN 웨이퍼-6인치", 45, 0.85)
+
+    samples = controller.list_samples()
+
+    assert len(samples) == 2
+    assert {sample.id for sample in samples} == {"S-001", "S-002"}
+    assert all(sample.stock == 0 for sample in samples)
