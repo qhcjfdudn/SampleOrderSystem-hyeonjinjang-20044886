@@ -153,3 +153,33 @@ def test_list_confirmed_orders_returns_only_confirmed_orders(tmp_path):
     assert len(confirmed_orders) == 1
     assert confirmed_orders[0].id == order_a.id
     assert confirmed_orders[0].status == "CONFIRMED"
+
+
+def test_release_order_transitions_status_to_release_without_changing_stock(tmp_path):
+    order_repository = OrderRepository(str(tmp_path / "orders.json"))
+    sample_repository = SampleRepository(str(tmp_path / "samples.json"))
+    controller = OrderController(order_repository, sample_repository)
+
+    sample_repository.save(
+        Sample(
+            id="S-001",
+            name="실리콘 웨이퍼-8인치",
+            avg_production_time=30,
+            yield_rate=0.9,
+            stock=50,
+        )
+    )
+    placed_order = controller.place_order("S-001", "홍길동", 20, date(2026, 4, 16))
+    controller.approve_order(placed_order.id)
+
+    released_order = controller.release_order(placed_order.id)
+
+    assert released_order.status == "RELEASE"
+
+    found_order = order_repository.find_by_id(placed_order.id)
+    assert found_order is not None
+    assert found_order.status == "RELEASE"
+
+    found_sample = sample_repository.find_by_id("S-001")
+    assert found_sample is not None
+    assert found_sample.stock == 30
