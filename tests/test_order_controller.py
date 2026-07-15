@@ -2,12 +2,13 @@ from datetime import date
 
 from app.controllers.order_controller import OrderController
 from app.models.order_repository import OrderRepository
+from app.models.sample_repository import SampleRepository
 
 
 def test_place_order_generates_order_id_and_saves_reserved_order(tmp_path):
-    file_path = tmp_path / "orders.json"
-    repository = OrderRepository(str(file_path))
-    controller = OrderController(repository)
+    order_repository = OrderRepository(str(tmp_path / "orders.json"))
+    sample_repository = SampleRepository(str(tmp_path / "samples.json"))
+    controller = OrderController(order_repository, sample_repository)
 
     first_order = controller.place_order("S-001", "홍길동", 20, date(2026, 4, 16))
 
@@ -21,9 +22,25 @@ def test_place_order_generates_order_id_and_saves_reserved_order(tmp_path):
 
     assert second_order.id == "ORD-20260416-0002"
 
-    found = repository.find_by_id("ORD-20260416-0001")
+    found = order_repository.find_by_id("ORD-20260416-0001")
     assert found is not None
     assert found.sample_id == first_order.sample_id
     assert found.customer_name == first_order.customer_name
     assert found.quantity == first_order.quantity
     assert found.status == first_order.status
+
+
+def test_reject_order_transitions_status_to_rejected(tmp_path):
+    order_repository = OrderRepository(str(tmp_path / "orders.json"))
+    sample_repository = SampleRepository(str(tmp_path / "samples.json"))
+    controller = OrderController(order_repository, sample_repository)
+
+    placed_order = controller.place_order("S-001", "홍길동", 20, date(2026, 4, 16))
+
+    rejected_order = controller.reject_order(placed_order.id)
+
+    assert rejected_order.status == "REJECTED"
+
+    found = order_repository.find_by_id(placed_order.id)
+    assert found is not None
+    assert found.status == "REJECTED"
