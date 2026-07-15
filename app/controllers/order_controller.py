@@ -26,6 +26,19 @@ class OrderController:
         self.order_repository.save(order)
         return order
 
+    def approve_order(self, order_id) -> Order:
+        order = self.order_repository.find_by_id(order_id)
+        sample = self.sample_repository.find_by_id(order.sample_id)
+
+        if sample.stock >= order.quantity:
+            sample.stock -= order.quantity
+            self.sample_repository.update(sample)
+
+            order.status = "CONFIRMED"
+            self.order_repository.update(order)
+
+        return order
+
     def reject_order(self, order_id) -> Order:
         order = self.order_repository.find_by_id(order_id)
         order.status = "REJECTED"

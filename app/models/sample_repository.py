@@ -17,6 +17,16 @@ class SampleRepository:
         }
         self._data_persistence.create(record)
 
+    def update(self, sample: Sample) -> None:
+        record = {
+            "id": sample.id,
+            "name": sample.name,
+            "avg_production_time": sample.avg_production_time,
+            "yield_rate": sample.yield_rate,
+            "stock": sample.stock,
+        }
+        self._data_persistence.update(sample.id, record)
+
     def find_by_id(self, id):
         record = self._data_persistence.read(id)
         if record is None:
