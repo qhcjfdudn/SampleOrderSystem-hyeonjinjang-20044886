@@ -18,9 +18,9 @@
 
 ## 2단계 — 데이터 계층 (Model)
 
-- [ ] `app/models`에 시료(Sample) 모델 구현 — 필드: 시료 ID, 이름, 평균 생산시간, 수율, 현재 재고 (PRD 6장)
-- [ ] `app/models`에 주문(Order) 모델 구현 — 필드: 주문번호, 시료 ID, 고객명, 주문 수량, 상태 (PRD 6장)
-- [ ] `data_persistence.DataPersistence`로 `samples.json`, `orders.json` 각각 CRUD 연동 (PRD 7장)
+- [x] `app/models`에 시료(Sample) 모델 구현 — 필드: 시료 ID, 이름, 평균 생산시간, 수율, 현재 재고 (PRD 6장)
+- [x] `app/models`에 주문(Order) 모델 구현 — 필드: 주문번호, 시료 ID, 고객명, 주문 수량, 상태 (PRD 6장)
+- [x] `data_persistence.DataPersistence`로 `samples.json`, `orders.json` 각각 CRUD 연동 (PRD 7장)
 
 ## 3단계 — 시료 관리
 
