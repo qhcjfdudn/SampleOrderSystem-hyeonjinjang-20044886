@@ -54,3 +54,10 @@ class OrderController:
             for order in self.order_repository.find_all()
             if order.status == "RESERVED"
         ]
+
+    def list_confirmed_orders(self) -> list:
+        return [
+            order
+            for order in self.order_repository.find_all()
+            if order.status == "CONFIRMED"
+        ]
