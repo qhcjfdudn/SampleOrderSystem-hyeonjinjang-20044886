@@ -2,6 +2,7 @@ from datetime import date
 
 from app.controllers.order_controller import OrderController
 from app.models.order_repository import OrderRepository
+from app.models.sample import Sample
 from app.models.sample_repository import SampleRepository
 
 
@@ -44,3 +45,32 @@ def test_reject_order_transitions_status_to_rejected(tmp_path):
     found = order_repository.find_by_id(placed_order.id)
     assert found is not None
     assert found.status == "REJECTED"
+
+
+def test_approve_order_confirms_order_and_deducts_stock_when_stock_is_sufficient(tmp_path):
+    order_repository = OrderRepository(str(tmp_path / "orders.json"))
+    sample_repository = SampleRepository(str(tmp_path / "samples.json"))
+    controller = OrderController(order_repository, sample_repository)
+
+    sample_repository.save(
+        Sample(
+            id="S-001",
+            name="실리콘 웨이퍼-8인치",
+            avg_production_time=30,
+            yield_rate=0.9,
+            stock=50,
+        )
+    )
+    placed_order = controller.place_order("S-001", "홍길동", 20, date(2026, 4, 16))
+
+    approved_order = controller.approve_order(placed_order.id)
+
+    assert approved_order.status == "CONFIRMED"
+
+    found_order = order_repository.find_by_id(placed_order.id)
+    assert found_order is not None
+    assert found_order.status == "CONFIRMED"
+
+    found_sample = sample_repository.find_by_id("S-001")
+    assert found_sample is not None
+    assert found_sample.stock == 30
