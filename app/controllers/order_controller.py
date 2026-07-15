@@ -47,3 +47,10 @@ class OrderController:
         order.status = "REJECTED"
         self.order_repository.update(order)
         return order
+
+    def list_reserved_orders(self) -> list:
+        return [
+            order
+            for order in self.order_repository.find_all()
+            if order.status == "RESERVED"
+        ]
