@@ -74,3 +74,32 @@ def test_approve_order_confirms_order_and_deducts_stock_when_stock_is_sufficient
     found_sample = sample_repository.find_by_id("S-001")
     assert found_sample is not None
     assert found_sample.stock == 30
+
+
+def test_approve_order_sets_producing_and_keeps_stock_when_stock_is_insufficient(tmp_path):
+    order_repository = OrderRepository(str(tmp_path / "orders.json"))
+    sample_repository = SampleRepository(str(tmp_path / "samples.json"))
+    controller = OrderController(order_repository, sample_repository)
+
+    sample_repository.save(
+        Sample(
+            id="S-001",
+            name="실리콘 웨이퍼-8인치",
+            avg_production_time=30,
+            yield_rate=0.9,
+            stock=5,
+        )
+    )
+    placed_order = controller.place_order("S-001", "홍길동", 20, date(2026, 4, 16))
+
+    approved_order = controller.approve_order(placed_order.id)
+
+    assert approved_order.status == "PRODUCING"
+
+    found_order = order_repository.find_by_id(placed_order.id)
+    assert found_order is not None
+    assert found_order.status == "PRODUCING"
+
+    found_sample = sample_repository.find_by_id("S-001")
+    assert found_sample is not None
+    assert found_sample.stock == 5
