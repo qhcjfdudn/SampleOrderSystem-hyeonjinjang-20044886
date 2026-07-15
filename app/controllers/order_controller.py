@@ -48,6 +48,12 @@ class OrderController:
         self.order_repository.update(order)
         return order
 
+    def release_order(self, order_id) -> Order:
+        order = self.order_repository.find_by_id(order_id)
+        order.status = "RELEASE"
+        self.order_repository.update(order)
+        return order
+
     def list_reserved_orders(self) -> list:
         return [
             order
