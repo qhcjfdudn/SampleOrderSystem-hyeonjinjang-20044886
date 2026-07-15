@@ -22,3 +22,7 @@ class OrderRepository:
         if record is None:
             return None
         return Order(**record)
+
+    def find_all(self) -> list:
+        records = self._data_persistence.read_all()
+        return [Order(**record) for record in records]
