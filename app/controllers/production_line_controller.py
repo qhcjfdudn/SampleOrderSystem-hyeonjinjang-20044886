@@ -1,0 +1,31 @@
+import math
+
+
+class ProductionLineController:
+    def __init__(self, order_repository, sample_repository):
+        self.order_repository = order_repository
+        self.sample_repository = sample_repository
+
+    def current_production(self) -> dict | None:
+        producing_orders = [
+            order
+            for order in self.order_repository.find_all()
+            if order.status == "PRODUCING"
+        ]
+
+        if not producing_orders:
+            return None
+
+        order = sorted(producing_orders, key=lambda o: o.id)[0]
+        sample = self.sample_repository.find_by_id(order.sample_id)
+
+        shortfall = order.quantity - sample.stock
+        actual_production = math.ceil(shortfall / sample.yield_rate)
+        total_production_time = sample.avg_production_time * actual_production
+
+        return {
+            "order": order,
+            "shortfall": shortfall,
+            "actual_production": actual_production,
+            "total_production_time": total_production_time,
+        }
